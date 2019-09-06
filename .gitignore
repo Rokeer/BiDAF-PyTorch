@@ -7,3 +7,5 @@ shape_info.txt
 
 *.swp
 *.xlsx
+.idea/
+.DS_Store

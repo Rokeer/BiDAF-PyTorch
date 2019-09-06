@@ -12,7 +12,7 @@ import code
 from numpy import genfromtxt
 from torch.autograd import Variable
 from torch.nn import Embedding
-from torch import zeros, from_numpy, Tensor, LongTensor, FloatTensor
+from torch import zeros, from_numpy, LongTensor, FloatTensor
 from argparse import ArgumentParser
 
 
@@ -37,6 +37,8 @@ class BiDAF(nn.Module):
             config.hidden_size, config.max_word_size
         self.word_embed = Embedding(config.word_vocab_size, \
                                            config.glove_vec_size)
+        print(config.word_vocab_size)
+        # self.word_embed.weight.data.copy_(torch.from_numpy(self.config.word_emb_mat))
         self.char_embed = Embedding(config.char_vocab_size, \
                                            config.char_emb_size)
 
@@ -65,6 +67,9 @@ class BiDAF(nn.Module):
         self.g2_biencoder = L.BiEncoder(config, 14 * config.hidden_size, hidden_size=config.hidden_size)
         # p0: 8 * d. g2: 2 * d
         self.g2_logits = L.GetLogits(config, 10 * config.hidden_size, input_keep_prob=config.input_keep_prob, function=config.answer_func)
+
+    def embedding_lookup(self, embeddings, indices):
+        return embeddings.index_select(0, indices.view(-1)).view(*(indices.size() + embeddings.size()[1:]))
 
     def forward(self, x, cx, x_mask, q, cq, q_mask, new_emb_mat):
         config = self.config
@@ -96,7 +101,7 @@ class BiDAF(nn.Module):
         self.q_mask = get_long_tensor(q_mask)
         self.q = get_long_tensor(q.reshape(N, -1))
         self.cq = get_long_tensor(cq.reshape(N, -1))
-        self.new_emb_mat = Tensor(new_emb_mat).type(dtype) 
+        self.new_emb_mat = FloatTensor(new_emb_mat).type(dtype)
         
         # Char Embedding Layer
         # TODO: Send this part to the layers.py
@@ -122,14 +127,17 @@ class BiDAF(nn.Module):
 
         if config.use_word_emb:
             if config.mode == 'train':
-                word_emb_mat = Variable(Tensor(config.emb_mat))
+                word_emb_mat = Variable(FloatTensor(config.emb_mat))
             else:
-                word_emb_mat = Variable(Tensor(Vw, dw).type(dtype))
+                word_emb_mat = Variable(FloatTensor(VW, dw).type(dtype))
             if config.use_glove_for_unk:
-                word_emb_mat = torch.cat((word_emb_mat, self.new_emb_mat), 1)
+                word_emb_mat = torch.cat((word_emb_mat, self.new_emb_mat), 0)
 
-            Ax = self.word_embed(Variable(self.x)).view(N, M, JX, dw)
-            Aq = self.word_embed(Variable(self.q)).view(N, JQ, dw)
+            Ax = self.embedding_lookup(word_emb_mat, self.x).view(N, M, JX, dw)  # [N, M, JX, d]
+            Aq = self.embedding_lookup(word_emb_mat, self.q).view(N, JQ, dw)  # [N, JQ, d]
+
+            # Ax = self.word_embed(Variable(self.x)).view(N, M, JX, dw)
+            # Aq = self.word_embed(Variable(self.q)).view(N, JQ, dw)
 
         if config.use_char_emb:
             xx = torch.cat((xx, Ax), 3)
@@ -184,18 +192,19 @@ class BiDAF(nn.Module):
         flat_logits2 = logits2.view(-1, M * JX)
         flat_yp2 = F.softmax(flat_logits2)
 
-        if config.na:
-            print("na case not implemented!")
-            na_bias_tiled = Variable(Tensor(1,1).type(dtype)).repeat(N, 1)
-            concat_flat_logits = torch.cat([na_bias_tiled, flat_logits], 1)
-            concat_flat_yp = F.softmax(concat_flat_logits)
-            print(concat_flat_yp.size())
+        # if config.na:
+        #     print("na case not implemented!")
+        #     na_bias_tiled = Variable(Tensor(1,1).type(dtype)).repeat(N, 1)
+        #     concat_flat_logits = torch.cat([na_bias_tiled, flat_logits], 1)
+        #     concat_flat_yp = F.softmax(concat_flat_logits)
+        #     print(concat_flat_yp.size())
 
         yp = flat_yp.view(-1, M, JX)
         yp2 = flat_yp2.view(-1, M, JX)
         wyp = F.sigmoid(logits2)
-
-        return yp, yp2
+        logits = Variable(logits, requires_grad=True)
+        logits2 = Variable(logits2, requires_grad=True)
+        return yp, yp2, logits, logits2
 
 
 if __name__ == '__main__':
@@ -315,7 +324,7 @@ if __name__ == '__main__':
     config.batch_size, config.max_num_sents, config.max_sent_size, \
     config.max_ques_size, config.word_vocab_size, config.char_vocab_size, config.hidden_size, config.max_word_size
 
-    config.emb_mat = genfromtxt('emb_mat.csv', delimiter=',')
+    config.emb_mat = genfromtxt('../emb_mat.csv', delimiter=',')
 
     print(" >>>>>>>>>> DIMENSIONS <<<<<<<<<< ")
     print('N = ' + str(N))
@@ -346,6 +355,6 @@ if __name__ == '__main__':
         model.cuda()
 
     inputs = [x, cx, x_mask, q, cq, q_mask, new_emb_mat]
-    start, end = model(*inputs)
+    start, end, l_start, l_end = model(*inputs)
     print('start = ', start)
     print('end = ', end)

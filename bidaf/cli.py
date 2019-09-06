@@ -8,9 +8,9 @@ def get_args():
     # Names and directories
     flags = ArgumentParser(description = 'PyTorch BiDAF model')
     flags.add_argument("--model_name", type=str, default="basic", help="Model name [basic]")
-    flags.add_argument("--data_dir", type=str, default="data/squad", help="Data dir [data/squad]")
+    flags.add_argument("--data_dir", type=str, default="../data/squad", help="Data dir [data/squad]")
     flags.add_argument("--run_id", type=str, default="0", help="Run ID [0]")
-    flags.add_argument("--out_base_dir", type=str, default="out", help="out base dir [out]")
+    flags.add_argument("--out_base_dir", type=str, default="../out", help="out base dir [out]")
     flags.add_argument("--forward_name", type=str, default="single", help="Forward name [single]")
     flags.add_argument("--answer_path", type=str, default="", help="Answer path []")
     flags.add_argument("--eval_path", type=str, default="", help="Eval path []")
@@ -22,7 +22,7 @@ def get_args():
     flags.add_argument("--num_gpus", type=int, default=1, help="num of gpus or cpus for computing gradients [1]")
 
     # Essential training and test options
-    flags.add_argument("--mode", type=str, default="test", help="train | test | forward [test]")
+    flags.add_argument("--mode", type=str, default="train", help="train | test | forward [test]")
     flags.add_argument("--load", type=bool, default=True, help="load saved data? [True]")
     flags.add_argument("--single", type=bool, default=False, help="supervise only the answer sentence? [False]")
     flags.add_argument("--debug", default=False, action="store_true", help="Debugging mode? [False]")
@@ -45,7 +45,7 @@ def get_args():
     flags.add_argument("--char_emb_size", type=int, default=8, help="Char emb size [8]")
     flags.add_argument("--out_channel_dims", type=str, default="100", help="Out channel dims of Char-CNN, separated by commas [100]")
     flags.add_argument("--filter_heights", type=str, default="5", help="Filter heights of Char-CNN, separated by commas [5]")
-    flags.add_argument("--finetune", type=bool, default=False, help="Finetune word embeddings? [False]")
+    flags.add_argument("--finetune", type=bool, default=True, help="Finetune word embeddings? [False]")
     flags.add_argument("--highway", type=bool, default=True, help="Use highway? [True]")
     flags.add_argument("--highway_num_layers", type=int, default=2, help="highway num layers [2]")
     flags.add_argument("--share_cnn_weights", type=bool, default=True, help="Share Char-CNN weights [True]")
@@ -92,7 +92,7 @@ def get_args():
     flags.add_argument("--sh_logit_func", type=str, default="tri_linear", help="sh logit func [tri_linear]")
 
     # Ablation options
-    flags.add_argument("--use_char_emb", type=bool, default=True, help="use char emb? [True]")
+    flags.add_argument("--use_char_emb", type=bool, default=False, help="use char emb? [True]")
     flags.add_argument("--use_word_emb", type=bool, default=True, help="use word embedding? [True]")
     flags.add_argument("--q2c_att", type=bool, default=True, help="question-to-context attention? [True]")
     flags.add_argument("--c2q_att", type=bool, default=True, help="context-to-question attention? [True]")

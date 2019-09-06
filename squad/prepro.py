@@ -18,9 +18,9 @@ def main():
 
 def get_args():
     parser = argparse.ArgumentParser()
-    home = os.path.expanduser("~/tz/")
+    home = os.path.expanduser("../")
     source_dir = os.path.join(home, "data", "squad")
-    target_dir = "data/squad"
+    target_dir = os.path.join(home, "data", "squad")
     glove_dir = os.path.join(home, "data", "glove")
     parser.add_argument('-s', "--source_dir", default=source_dir)
     parser.add_argument('-t', "--target_dir", default=target_dir)

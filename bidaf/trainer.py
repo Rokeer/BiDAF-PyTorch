@@ -3,6 +3,7 @@ import torch.optim as O
 import os.path
 import numpy as np
 import random
+import torch.nn as nn
 
 
 class MultiGPUTrainer(object):
@@ -10,8 +11,8 @@ class MultiGPUTrainer(object):
         # assert isinstance(model, Model)
         self.config = config
         self.model = model
-        # self.optimizer = O.Adadelta(config.init_lr)
-
+        self.optimizer = O.Adadelta(self.model.parameters(), config.init_lr)
+        self.loss = nn.CrossEntropyLoss()
 
     def step(self, batch, get_summary=False, supervised=True):
         config = self.config
@@ -44,14 +45,14 @@ class MultiGPUTrainer(object):
                 new_M = max(len(para) for para in batch.data['x'])
             M = min(M, new_emb_mat_M)
 
-        x = np.zeros([N, M, JX], dtype='int32')
+        x = np.zeros([N, M, JX], dtype='int')
         cx = np.zeros([N, M, JX, W], dtype='int')
-        x_mask = np.zeros([N, M, JX], dtype='bool')
-        q = np.zeros([N, JQ], dtype='int32')
+        x_mask = np.zeros([N, M, JX], dtype='int')
+        q = np.zeros([N, JQ], dtype='int')
         cq = np.zeros([N, JQ, W], dtype='int')
-        q_mask = np.zeros([N, JQ], dtype='bool')
-        y = np.zeros([N, M, JX], dtype='bool')
-        y2 = np.zeros([N, M, JX], dtype='bool')
+        q_mask = np.zeros([N, JQ], dtype='int')
+        y = np.zeros([N, M, JX], dtype='int')
+        y2 = np.zeros([N, M, JX], dtype='int')
 
         X = batch.data['x']
         CX = batch.data['cx']
@@ -133,16 +134,30 @@ class MultiGPUTrainer(object):
 
         new_emb_mat = batch.shared['new_emb_mat']
         inputs = [x, cx, x_mask, q, cq, q_mask, new_emb_mat]
-        print("Checking x and q shapes")
+        # print("Checking x and q shapes") #colin
         N_q, JQ_q = q.shape
         N_x, M_x, JX_x = x.shape
-        print('N = ', N, ', N_x = ', N_x, ', JX = ', str(JX), ', JX_x = ', str(JX_x), ', M = ', str(M), ', M_x = ', str(M_x))
-        print('N = ', N, ', N_q =', N_q, ', JQ = ', str(JQ), ', JQ_q = ', str(JQ_q))
-        # m_start, m_end = self.model(*inputs)
+        # print('N = ', N, ', N_x = ', N_x, ', JX = ', str(JX), ', JX_x = ', str(JX_x), ', M = ', str(M), ', M_x = ', str(M_x)) #colin
+        # print('N = ', N, ', N_q =', N_q, ', JQ = ', str(JQ), ', JQ_q = ', str(JQ_q)) #colin
+
+        m_start, m_end , l_start, l_end= self.model(*inputs)
 
         # calcualte loss
-        loss_mask = np.amax(q_mask.astype(float), 1) 
+        loss_mask = np.amax(q_mask.astype(float), 1)
+        y = torch.autograd.Variable(torch.LongTensor(y))
+        y = y.squeeze(1)
+        # l_start = l_start.squeeze(1)
+        values, y = torch.max(y, 1)
 
-        # optimizer.zero_grad()
-        # loss.backward()
-        # optimizer.step()
+        y2 = torch.autograd.Variable(torch.LongTensor(y2))
+        y2 = y2.squeeze(1)
+        # l_end = l_end.squeeze(1)
+        values, y2 = torch.max(y2, 1)
+
+        start_loss = self.loss(l_start, y)
+        end_loss = self.loss(l_end, y2)
+
+        loss = start_loss + end_loss
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()

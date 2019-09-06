@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DATA_DIR=$HOME/tz/data
+DATA_DIR=data
 mkdir $DATA_DIR
 
 # Download SQuAD
